@@ -10,7 +10,6 @@ class ReportController extends Controller
 {
     public function jurnal()
     {
-        // Mengambil data jurnal beserta relasi transaksi & akun
         $entries = JournalEntry::with(['transaction', 'account'])
             ->get()
             ->sortByDesc('transaction.date'); 
@@ -20,45 +19,61 @@ class ReportController extends Controller
 
     public function bukuBesar()
     {
-        // Mengambil data akun beserta relasi jurnalnya
         $accounts = Account::with(['journalEntries.transaction'])->get();
         return view('reports.buku_besar', compact('accounts'));
     }
 
     public function keuangan()
     {
-        // 1. Ambil Akun per Kategori
+        // --- 1. LAPORAN LABA RUGI (INCOME STATEMENT) ---
+        // Pendapatan (Saldo Normal: Kredit)
         $pendapatan = Account::where('type', 'penghasilan')->get();
-        $beban = Account::where('type', 'beban')->get();
-        $aset = Account::where('type', 'aset')->get();
-        $liabilitas = Account::where('type', 'liabilitas')->get();
-        
-        // 2. Hitung Total Laba Rugi
-        // (Kredit - Debit untuk Pendapatan)
         $totalPendapatan = $pendapatan->sum(fn($a) => $a->journalEntries->sum('credit') - $a->journalEntries->sum('debit'));
-        // (Debit - Kredit untuk Beban)
+
+        // Beban (Saldo Normal: Debit)
+        $beban = Account::where('type', 'beban')->get();
         $totalBeban = $beban->sum(fn($a) => $a->journalEntries->sum('debit') - $a->journalEntries->sum('credit'));
         
+        // Laba Bersih
         $labaBersih = $totalPendapatan - $totalBeban;
 
-        // 3. Hitung Ekuitas Akhir (Modal Awal + Laba - Dividen)
-        // Ambil saldo kredit akun modal (301)
+
+        // --- 2. LAPORAN PERUBAHAN EKUITAS (STATEMENT OF CHANGES IN EQUITY) ---
+        // Modal Saham (Saldo Normal: Kredit)
         $modalAccount = Account::where('code', '301')->first();
-        $modalAwal = $modalAccount ? $modalAccount->journalEntries->sum('credit') : 0;
+        $modalAwal = $modalAccount ? $modalAccount->journalEntries->sum('credit') - $modalAccount->journalEntries->sum('debit') : 0;
         
-        // Ambil saldo debit akun dividen (303)
-        $dividenAccount = Account::where('code', '303')->first();
-        $dividen = $dividenAccount ? $dividenAccount->journalEntries->sum('debit') : 0;
+        // Dividen (Saldo Normal: Debit)
+        // Dividen mengurangi Ekuitas
+        $dividenAccount = Account::where('code', '302')->first();
+        $dividen = $dividenAccount ? $dividenAccount->journalEntries->sum('debit') - $dividenAccount->journalEntries->sum('credit') : 0;
         
+        // Ekuitas Akhir = Modal Awal + Laba Bersih - Dividen
         $ekuitasAkhir = $modalAwal + $labaBersih - $dividen;
 
-        // 4. Hitung Neraca
+
+        // --- 3. NERACA (BALANCE SHEET) ---
+        // Aset (Saldo Normal: Debit)
+        $aset = Account::where('type', 'aset')->get();
         $totalAset = $aset->sum(fn($a) => $a->journalEntries->sum('debit') - $a->journalEntries->sum('credit'));
+
+        // Liabilitas (Saldo Normal: Kredit)
+        $liabilitas = Account::where('type', 'liabilitas')->get();
         $totalLiabilitas = $liabilitas->sum(fn($a) => $a->journalEntries->sum('credit') - $a->journalEntries->sum('debit'));
 
+        // Total Pasiva (Liabilitas + Ekuitas Akhir)
+        $totalPasiva = $totalLiabilitas + $ekuitasAkhir;
+
+        // Pengecekan Balance
+        $isBalanced = ($totalAset == $totalPasiva);
+
         return view('reports.keuangan', compact(
-            'totalPendapatan', 'totalBeban', 'labaBersih',
-            'totalAset', 'totalLiabilitas', 'ekuitasAkhir'
+            'pendapatan', 'totalPendapatan', 
+            'beban', 'totalBeban', 
+            'labaBersih',
+            'modalAwal', 'dividen', 'ekuitasAkhir',
+            'aset', 'totalAset', 
+            'liabilitas', 'totalLiabilitas', 'totalPasiva', 'isBalanced'
         ));
     }
 }

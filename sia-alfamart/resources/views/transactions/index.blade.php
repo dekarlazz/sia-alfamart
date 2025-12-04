@@ -56,7 +56,9 @@
                     <label class="form-label small text-muted">Jenis Transaksi</label>
                     <select name="type" class="form-select" required>
                         <option value="penjualan">Penjualan (Uang Masuk)</option>
-                        <option value="pembelian_persediaan">Beli Persediaan (Keluar)</option>
+                        <option value="pembelian_tunai">Beli Persediaan (Tunai)</option>
+                        <option value="pembelian_kredit">Beli Persediaan (Kredit/Utang)</option>
+                        <option value="pelunasan_utang">Bayar Utang Usaha</option>
                         <option value="beban_ops">Bayar Listrik/Air</option>
                         <option value="beban_gaji">Bayar Gaji</option>
                         <option value="hpp">Catat HPP (Stok Berkurang)</option>
