@@ -12,31 +12,34 @@ class TransactionController extends Controller
 {
     public function index()
     {
-        // 1. Ambil data transaksi terbaru
         $transactions = Transaction::orderBy('date', 'desc')->get();
         
-        // 2. Hitung Saldo Kas 
+        // 1. Hitung Saldo Kas (Optimized)
         $kasAcc = Account::where('code', '101')->first();
         $totalKas = 0;
-        
-        if($kasAcc) {
-            // Rumus: Sum(Debit - Kredit)
+        if ($kasAcc) {
             $totalKas = JournalEntry::where('account_id', $kasAcc->id)
                 ->sum(DB::raw('debit - credit'));
         }
 
-        // 3. Hitung Pendapatan & Beban (Tetap Kredit/Debit murni)
+        // 2. Ringkasan Atas
         $pendapatan = JournalEntry::whereHas('account', fn($q) => $q->where('type', 'penghasilan'))->sum('credit');
         $beban = JournalEntry::whereHas('account', fn($q) => $q->where('type', 'beban'))->sum('debit');
 
-        // 4. Data Grafik
-        $dailyCash = DB::table('journal_entries')
-            ->join('transactions', 'journal_entries.transaction_id', '=', 'transactions.id')
-            ->join('accounts', 'journal_entries.account_id', '=', 'accounts.id')
-            ->where('accounts.code', '101') 
-            ->selectRaw('transactions.date, sum(debit) as masuk, sum(credit) as keluar')
-            ->groupBy('transactions.date')
-            ->orderBy('transactions.date')
+        // 3. Grafik 1: Tren Bulanan (Income vs Expense) - SQLite Syntax
+        $monthlyPerformance = DB::table('transactions')
+            ->selectRaw("strftime('%Y-%m', date) as month, 
+                         SUM(CASE WHEN type IN ('penjualan', 'pendapatan_lain') THEN amount ELSE 0 END) as income,
+                         SUM(CASE WHEN type IN ('beban_ops', 'beban_gaji', 'hpp', 'beban_pajak') THEN amount ELSE 0 END) as expense")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        // 4. Grafik 2: Komposisi Beban (Pie Chart)
+        $expenseBreakdown = DB::table('transactions')
+            ->whereIn('type', ['hpp', 'beban_ops', 'beban_gaji', 'beban_pajak'])
+            ->selectRaw('type, SUM(amount) as total')
+            ->groupBy('type')
             ->get();
 
         return view('transactions.index', [
@@ -44,9 +47,13 @@ class TransactionController extends Controller
             'totalKas' => $totalKas,
             'pendapatan' => $pendapatan,
             'beban' => $beban,
-            'chartLabels' => $dailyCash->pluck('date'),
-            'chartMasuk' => $dailyCash->pluck('masuk'),
-            'chartKeluar' => $dailyCash->pluck('keluar')
+            // Data Grafik Tren Bulanan
+            'months' => $monthlyPerformance->pluck('month'),
+            'incomes' => $monthlyPerformance->pluck('income'),
+            'expenses' => $monthlyPerformance->pluck('expense'),
+            // Data Grafik Pie
+            'expenseTypes' => $expenseBreakdown->pluck('type'),
+            'expenseTotals' => $expenseBreakdown->pluck('total')
         ]);
     }
 
