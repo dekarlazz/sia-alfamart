@@ -53,20 +53,43 @@ class ReportController extends Controller
         $totalPasiva = $totalLiabilitas + $ekuitasAkhir;
         $isBalanced = ($totalAset == $totalPasiva);
 
-        // Data Grafik Aset
-        $asetLancar = Account::whereIn('code', ['101', '102'])->get()
-            ->sum(fn($a) => $a->journalEntries->sum('debit') - $a->journalEntries->sum('credit'));
-        $asetTetap = Account::whereIn('code', ['103'])->get()
-            ->sum(fn($a) => $a->journalEntries->sum('debit') - $a->journalEntries->sum('credit'));
+        $asetLancar = Account::whereIn('code', ['101', '102'])->get()->sum(fn($a) => $a->journalEntries->sum('debit') - $a->journalEntries->sum('credit'));
+        $asetTetap = Account::whereIn('code', ['103'])->get()->sum(fn($a) => $a->journalEntries->sum('debit') - $a->journalEntries->sum('credit'));
 
-        // --- 4. ANALISIS RASIO KEUANGAN ---
-        // A. Net Profit Margin (NPM) = Laba Bersih / Pendapatan
+        // --- 4. LAPORAN ARUS KAS (CASH FLOW STATEMENT) ---
+        
+        // A. Arus Kas dari Aktivitas Operasi
+        // Masuk: Penjualan, Pendapatan Lain
+        $kasMasukOperasi = \App\Models\Transaction::whereIn('type', ['penjualan', 'pendapatan_lain'])->sum('amount');
+        // Keluar: Pembelian Tunai, Pelunasan Utang, Beban Ops, Gaji, Pajak
+        $kasKeluarOperasi = \App\Models\Transaction::whereIn('type', ['pembelian_tunai', 'pelunasan_utang', 'beban_ops', 'beban_gaji', 'beban_pajak'])->sum('amount');
+        $kasBersihOperasi = $kasMasukOperasi - $kasKeluarOperasi;
+
+        // B. Arus Kas dari Aktivitas Investasi
+        // Keluar: Capex (Beli Aset)
+        $kasKeluarInvestasi = \App\Models\Transaction::where('type', 'capex')->sum('amount');
+        $kasBersihInvestasi = -1 * $kasKeluarInvestasi; // Pasti minus kalau beli aset
+
+        // C. Arus Kas dari Aktivitas Pendanaan
+        // Masuk: Utang Bank
+        $kasMasukPendanaan = \App\Models\Transaction::where('type', 'utang_bank')->sum('amount');
+        // Keluar: Dividen
+        $kasKeluarPendanaan = \App\Models\Transaction::where('type', 'dividen')->sum('amount');
+        $kasBersihPendanaan = $kasMasukPendanaan - $kasKeluarPendanaan;
+
+        // Total Kenaikan/Penurunan Kas
+        $kenaikanKas = $kasBersihOperasi + $kasBersihInvestasi + $kasBersihPendanaan;
+
+        // Saldo Awal Kas (Diambil dari Jurnal Saldo Awal akun 101)
+        $saldoAwalKas = JournalEntry::whereHas('account', fn($q) => $q->where('code', '101'))
+            ->whereHas('transaction', fn($q) => $q->where('type', 'saldo_awal'))
+            ->sum('debit');
+
+        $saldoAkhirKas = $saldoAwalKas + $kenaikanKas;
+
+        // --- 5. RASIO ---
         $npm = $totalPendapatan > 0 ? ($labaBersih / $totalPendapatan) * 100 : 0;
-
-        // B. Debt to Asset Ratio (DAR) = Total Utang / Total Aset
         $dar = $totalAset > 0 ? ($totalLiabilitas / $totalAset) * 100 : 0;
-
-        // C. Return on Equity (ROE) = Laba Bersih / Ekuitas
         $roe = $ekuitasAkhir > 0 ? ($labaBersih / $ekuitasAkhir) * 100 : 0;
 
         return view('reports.keuangan', compact(
@@ -74,7 +97,8 @@ class ReportController extends Controller
             'modalAwal', 'dividen', 'ekuitasAkhir',
             'aset', 'totalAset', 'liabilitas', 'totalLiabilitas', 'totalPasiva', 'isBalanced',
             'asetLancar', 'asetTetap',
-            'npm', 'dar', 'roe' // Kirim data rasio ke view
+            'kasBersihOperasi', 'kasBersihInvestasi', 'kasBersihPendanaan', 'kenaikanKas', 'saldoAwalKas', 'saldoAkhirKas',
+            'npm', 'dar', 'roe'
         ));
     }
 }

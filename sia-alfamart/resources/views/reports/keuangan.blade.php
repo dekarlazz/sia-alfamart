@@ -21,6 +21,7 @@
     <li class="nav-item"><button class="nav-link active btn-alfa-red" data-bs-toggle="pill" data-bs-target="#pills-lr">Laba Rugi</button></li>
     <li class="nav-item"><button class="nav-link btn-alfa-red" data-bs-toggle="pill" data-bs-target="#pills-ekuitas">Perubahan Ekuitas</button></li>
     <li class="nav-item"><button class="nav-link btn-alfa-red" data-bs-toggle="pill" data-bs-target="#pills-neraca">Neraca</button></li>
+    <li class="nav-item"><button class="nav-link btn-alfa-red" data-bs-toggle="pill" data-bs-target="#pills-aruskas">Arus Kas</button></li>
     <li class="nav-item"><button class="nav-link btn-alfa-red" data-bs-toggle="pill" data-bs-target="#pills-analisis">Analisis Kinerja</button></li>
 </ul>
 
@@ -96,10 +97,7 @@
                             @php $val = $a->journalEntries->sum('debit') - $a->journalEntries->sum('credit'); @endphp
                             <tr><td>{{ $a->name }}</td><td class="text-end">{{ number_format($val, 0, ',', '.') }}</td></tr>
                         @endforeach
-                        <tr class="table-primary fw-bold fs-5 border-top border-3 border-dark">
-                            <td>TOTAL ASET</td>
-                            <td class="text-end">Rp {{ number_format($totalAset, 0, ',', '.') }}</td>
-                        </tr>
+                        <tr class="table-primary fw-bold fs-5 border-top border-3 border-dark"><td>TOTAL ASET</td><td class="text-end">Rp {{ number_format($totalAset, 0, ',', '.') }}</td></tr>
                     </table>
                 </div>
             </div>
@@ -117,17 +115,70 @@
                         <tr class="fw-bold bg-light mt-3"><td colspan="2">EKUITAS</td></tr>
                         <tr><td>Ekuitas Akhir</td><td class="text-end">{{ number_format($ekuitasAkhir, 0, ',', '.') }}</td></tr>
 
-                        <tr class="table-primary fw-bold fs-5 border-top border-3 border-dark">
-                            <td>TOTAL LIABILITAS + EKUITAS</td>
-                            <td class="text-end">Rp {{ number_format($totalPasiva, 0, ',', '.') }}</td>
-                        </tr>
+                        <tr class="table-primary fw-bold fs-5 border-top border-3 border-dark"><td>TOTAL LIABILITAS + EKUITAS</td><td class="text-end">Rp {{ number_format($totalPasiva, 0, ',', '.') }}</td></tr>
                     </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 4. ANALISIS KINERJA (WOW FACTOR) -->
+    <!-- 4. ARUS KAS -->
+    <div class="tab-pane fade" id="pills-aruskas">
+        <div class="glass-card p-5">
+            <div class="text-center mb-4">
+                <h4 class="fw-bold">PT SUMBER ALFARIA TRIJAYA TBK</h4>
+                <h5>LAPORAN ARUS KAS</h5>
+                <small>Metode Langsung (Direct Method)</small>
+            </div>
+            <table class="table table-hover">
+                <!-- Operasi -->
+                <tr class="table-primary fw-bold"><td colspan="2">ARUS KAS DARI AKTIVITAS OPERASI</td></tr>
+                <tr>
+                    <td>Kas Bersih dari Operasi (Penjualan - Beban Tunai)</td>
+                    <td class="text-end fw-bold {{ $kasBersihOperasi < 0 ? 'text-danger' : 'text-success' }}">
+                        {{ $kasBersihOperasi < 0 ? '(' . number_format(abs($kasBersihOperasi), 0, ',', '.') . ')' : number_format($kasBersihOperasi, 0, ',', '.') }}
+                    </td>
+                </tr>
+
+                <!-- Investasi -->
+                <tr class="table-warning fw-bold mt-3"><td colspan="2">ARUS KAS DARI AKTIVITAS INVESTASI</td></tr>
+                <tr>
+                    <td>Pembelian Aset Tetap (Capex)</td>
+                    <td class="text-end fw-bold text-danger">
+                        ({{ number_format(abs($kasBersihInvestasi), 0, ',', '.') }})
+                    </td>
+                </tr>
+
+                <!-- Pendanaan -->
+                <tr class="table-info fw-bold mt-3"><td colspan="2">ARUS KAS DARI AKTIVITAS PENDANAAN</td></tr>
+                <tr>
+                    <td>Kas Bersih dari Pendanaan (Utang Bank - Dividen)</td>
+                    <td class="text-end fw-bold {{ $kasBersihPendanaan < 0 ? 'text-danger' : 'text-success' }}">
+                        {{ $kasBersihPendanaan < 0 ? '(' . number_format(abs($kasBersihPendanaan), 0, ',', '.') . ')' : number_format($kasBersihPendanaan, 0, ',', '.') }}
+                    </td>
+                </tr>
+
+                <!-- Summary -->
+                <tr class="border-top border-3 border-dark mt-4">
+                    <td class="fw-bold">Kenaikan (Penurunan) Bersih Kas</td>
+                    <td class="text-end fw-bold">Rp {{ number_format($kenaikanKas, 0, ',', '.') }}</td>
+                </tr>
+                <tr>
+                    <td>Saldo Kas Awal Tahun</td>
+                    <td class="text-end">Rp {{ number_format($saldoAwalKas, 0, ',', '.') }}</td>
+                </tr>
+                <tr class="table-active fw-bold fs-5">
+                    <td>SALDO KAS AKHIR TAHUN</td>
+                    <td class="text-end">Rp {{ number_format($saldoAkhirKas, 0, ',', '.') }}</td>
+                </tr>
+            </table>
+            <div class="alert alert-light mt-3 border text-center small">
+                *Saldo Kas Akhir Tahun harus sama dengan Saldo Kas di Neraca.
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. ANALISIS KINERJA -->
     <div class="tab-pane fade" id="pills-analisis">
         <div class="row g-4">
             <!-- Kartu Profit Margin -->
